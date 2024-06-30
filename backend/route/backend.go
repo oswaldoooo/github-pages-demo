@@ -4,6 +4,7 @@ import (
 	"backend/db"
 	"backend/internal/ent"
 	"backend/internal/temptor"
+	"encoding/json"
 	"log"
 	"net/http"
 
@@ -16,10 +17,15 @@ type PublishReq struct {
 	Body  string   `json:"body"`
 	Tags  []string `json:"tags,omitempty"`
 }
+type UserBasicInfo struct {
+	ID      uint64 `json:"id"`
+	Account string `json:"account"`
+}
 type Backend struct {
 	t   temptor.Temptor
 	log *log.Logger
 	db  *db.BackendDb
+	c   *redis.Client
 }
 
 func NewBackend(d *ent.Client, c *redis.Client, l *log.Logger) *Backend {
@@ -27,11 +33,38 @@ func NewBackend(d *ent.Client, c *redis.Client, l *log.Logger) *Backend {
 }
 func (b *Backend) RegisterRouter(r gin.IRoutes) {
 	r.POST("/publish", b.Publish)
+	r.POST("/edit", b.Edit)
+	r.POST("/delete", b.Delete)
+	r.POST("/payout", b.Payout)
 }
-
 func (b *Backend) ParseToken(ctx *gin.Context) {
+	token := ctx.GetHeader("token")
+	if len(token) == 0 {
+		ctx.AbortWithStatus(http.StatusBadRequest)
+		return
+	}
+	result, err := b.c.Get("token_with_" + token).Result()
+	if err != nil {
+		ctx.AbortWithStatus(http.StatusBadRequest)
+		return
+	}
+	var uinfo UserBasicInfo
+	err = json.Unmarshal([]byte(result), &uinfo)
+	if err != nil {
+		ctx.AbortWithStatus(http.StatusBadRequest)
+		return
+	}
+	ctx.Set("user_id", uinfo.ID)
+	ctx.Set("user_account", uinfo.Account)
+	ctx.Next()
+}
+
+// edit some field
+func (b *Backend) Edit(ctx *gin.Context) {
 
 }
+func (b *Backend) Delete(ctx *gin.Context) {}
+func (b *Backend) Payout(ctx *gin.Context) {}
 
 // publish blog
 func (b *Backend) Publish(ctx *gin.Context) {

@@ -114,6 +114,7 @@ func (cb *CacheDatabase) BlogList(ctx context.Context, author_id uint64, title s
 		dst.Id = src.ID
 		dst.UserId = src.UserID
 		dst.Title = src.Title
+		dst.Desc = src.Desc
 		vi, err := cb.cache.ZScore(article_range_set, strconv.FormatUint(dst.Id, 10)).Result()
 		if err == nil {
 			dst.View = uint64(vi)
@@ -141,12 +142,13 @@ func (cb *CacheDatabase) BlogListWithTag(ctx context.Context, author_id uint64, 
 	if len(tagName) > 0 {
 		query.Modify(func(s *sql.Selector) {
 			tagtable := sql.Table(tags.Table)
-			s.LeftJoin(tagtable).On(tags.FieldArticleID, blog.FieldID).Where(sql.EQ(tags.FieldName, tagName))
+			blogtable := sql.Table((blog.Table))
+			s.LeftJoin(tagtable).On(tagtable.C(tags.FieldArticleID), blogtable.C(blog.FieldID)).Where(sql.EQ(tags.FieldName, tagName))
 		})
 	}
 	b, err := query.All(ctx)
 	if err != nil {
-		cb.log.Println("find blog with tag failed")
+		cb.log.Println("find blog with tag failed " + err.Error())
 		return
 	}
 	var (
@@ -159,6 +161,7 @@ func (cb *CacheDatabase) BlogListWithTag(ctx context.Context, author_id uint64, 
 		dst.Id = src.ID
 		dst.UserId = src.UserID
 		dst.Title = src.Title
+		dst.Desc = src.Desc
 		vi, err := cb.cache.ZScore(article_range_set, strconv.FormatUint(dst.Id, 10)).Result()
 		if err == nil {
 			dst.View = uint64(vi)
@@ -178,6 +181,29 @@ func (cb *CacheDatabase) BlogListWithTag(ctx context.Context, author_id uint64, 
 			(*l) = append((*l), tv.Name)
 		}
 	}
+	return
+}
+func (cb *CacheDatabase) TagList(ctx context.Context, author_id uint64, account string) (result []TagInfo) {
+	if len(account) > 0 {
+		uinfo, err := cb.db.User.Query().Select(user.FieldID).Where(user.Account(account)).Only(ctx)
+		if err != nil {
+			cb.log.Println("get user info failed ", account, err)
+			return
+		}
+		if uinfo == nil {
+			return
+		}
+		author_id = uinfo.ID
+	}
+	r, err := cb.cache.ZRevRangeWithScores(tagCountSets+"_"+strconv.FormatUint(author_id, 10), 0, -1).Result()
+	if err != nil {
+		cb.log.Println("get tag count failed " + err.Error())
+		return
+	}
+	utils.SliceConvert(&result, r, func(dst *TagInfo, src redis.Z) {
+		dst.Key = src.Member.(string)
+		dst.Value = uint64(src.Score)
+	})
 	return
 }
 

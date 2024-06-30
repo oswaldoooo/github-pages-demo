@@ -360,3 +360,8 @@ const top_to = new Top({
     dImg: "../img/up.svg",
     hImg: "../img/up-on.svg"
 });
+//时间戳转string
+function TimestampToDate(Timestamp) {
+    let date1 = new Date(Timestamp);
+    return date1.toLocaleDateString().replace(/\//g, "-") + " " + date1.toTimeString().substr(0, 8);
+}

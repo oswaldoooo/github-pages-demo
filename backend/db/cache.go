@@ -1,7 +1,6 @@
 package db
 
 import (
-	"backend/internal/utils"
 	"backend/types"
 	"context"
 	"log"
@@ -27,18 +26,22 @@ func NewCache(db *redis.Client, logger *log.Logger) *Cache {
 		log: logger,
 	}
 }
-func (c *Cache) TagList(ctx context.Context, author_id uint64) (result []TagInfo) {
-	r, err := c.db.ZRevRangeWithScores(tagCountSets+"_"+strconv.FormatUint(author_id, 10), 0, -1).Result()
-	if err != nil {
-		c.log.Println("get tag count failed " + err.Error())
-		return
-	}
-	utils.SliceConvert(&result, r, func(dst *TagInfo, src redis.Z) {
-		dst.Key = src.Member.(string)
-		dst.Value = uint64(src.Score)
-	})
-	return
-}
+
+// func (c *Cache) TagList(ctx context.Context, author_id uint64, account string) (result []TagInfo) {
+// 	if len(account) > 0 {
+
+// 	}
+// 	r, err := c.db.ZRevRangeWithScores(tagCountSets+"_"+strconv.FormatUint(author_id, 10), 0, -1).Result()
+// 	if err != nil {
+// 		c.log.Println("get tag count failed " + err.Error())
+// 		return
+// 	}
+// 	utils.SliceConvert(&result, r, func(dst *TagInfo, src redis.Z) {
+// 		dst.Key = src.Member.(string)
+// 		dst.Value = uint64(src.Score)
+// 	})
+// 	return
+// }
 
 func (c *Cache) BlogView(ctx context.Context, articleId uint64) (views uint64) {
 	aid := strconv.FormatUint(articleId, 10)

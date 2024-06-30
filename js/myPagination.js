@@ -7,7 +7,8 @@ function myPagination(_ref) {
         showPageTotalFlag = _ref.showPageTotalFlag,
         showSkipInputFlag = _ref.showSkipInputFlag,
         pageAmount = _ref.pageAmount,
-        dataTotal = _ref.dataTotal;
+        dataTotal = _ref.dataTotal,
+        blogger = _ref.blogger;
 
     this.pageSize = pageSize || 5; //分页个数
     this.pageTotal = pageTotal; //总共多少页
@@ -19,6 +20,8 @@ function myPagination(_ref) {
     this.getPage = getPage;
     this.showPageTotalFlag = showPageTotalFlag || false; //是否显示数据统计
     this.showSkipInputFlag = showSkipInputFlag || false; //是否支持跳转
+    this.blogger = blogger;
+    console.log("set blogger");
     this.init();
 };
 
@@ -102,7 +105,7 @@ myPagination.prototype = {
     getPages: function getPages() {
         var pag = [];
         if (this.curPage <= this.pageTotal) {
-            if (this.curPage < this.pageSize) {
+            if (this.curPage <= this.pageSize) {
                 //当前页数小于显示条数
                 var i = Math.min(this.pageSize, this.pageTotal);
                 while (i) {
@@ -211,8 +214,311 @@ myPagination.prototype = {
         var that = this;
         var li = document.createElement('li');
         li.className = 'totalPage';
-        li.innerHTML = '共&nbsp' + that.pageTotal + '&nbsp页&nbsp&nbsp&nbsp' + '每页&nbsp' + that.pageAmount + '&nbsp条&nbsp&nbsp&nbsp'
-            + '共&nbsp' + that.dataTotal + '&nbsp条数据';
+        li.innerHTML = '共&nbsp' + that.pageTotal + '&nbsp页&nbsp&nbsp&nbsp' + '每页&nbsp' + that.blogger.pagesize + '&nbsp条&nbsp&nbsp&nbsp'
+            + '共&nbsp' + that.blogger.count + '&nbsp条数据';
         this.ul.appendChild(li);
     }
 };
+function TimestampToDate(Timestamp) {
+    let date1 = new Date(Timestamp);
+    return date1.toLocaleDateString().replace(/\//g, "-") + " " + date1.toTimeString().substr(0, 8);
+}
+function GetBlogNode(title, author, address, tags, views, ctime, desc) {
+    let node = document.createElement("div");
+    node.className = "article-box";
+    let abcontent = document.createElement("div");
+    abcontent.className = "ab-content";
+    let articletitle = document.createElement("div");
+    articletitle.className = "article-title";
+    let titledoc = document.createElement("a");
+    titledoc.href = address;
+    titledoc.textContent = title;
+    articletitle.appendChild(titledoc);
+    abcontent.appendChild(articletitle);
+    if (tags != null && tags.length > 0) {
+        let cate = document.createElement("div");
+        cate.className = "article-cate";
+        for (var i = 0; i < tags.length; i++) {
+            let ai = document.createElement("a");
+            ai.textContent = tags[i];
+            ai.href = "tag.html";
+            cate.appendChild(ai);
+        }
+        abcontent.appendChild(cate);
+    }
+    if (desc != null) {
+        let ddoc = document.createElement("div");
+        ddoc.className = "article-detail-box c-666";
+        ddoc.textContent = desc;
+        abcontent.appendChild(ddoc);
+    }
+    let tailbox = document.createElement("span");
+    //view,author account and ctime
+    let articledate = document.createElement("span");
+    articledate.className = "article-date c-999";
+    articledate.textContent = TimestampToDate(ctime);
+    tailbox.appendChild(articledate);
+    let articleauthor = document.createElement("span");
+    articleauthor.className = "article-author one-line-overflow c-999";
+    articleauthor.textContent = author;
+    tailbox.appendChild(articleauthor);
+    abcontent.appendChild(tailbox);
+    node.appendChild(abcontent);
+    return node;
+}
+class Blogger {
+    pagesize = 10;
+    count = 0;
+    constructor(account, id, url) {
+        this.id = id;
+        this.account = account;
+        this.url = url;
+        console.log("id is ", this.id, this.url);
+    }
+    async InitPagination() {
+        let totalpage = this.count / this.pagesize;
+        if (this.count % this.pagesize > 0) {
+            totalpage++;
+        }
+        let pdoc = document.getElementById("pagination");
+        pdoc.innerHTML = '';
+        let udoc = document.createElement("ul");
+        for (let index = 1; index <= totalpage; index++) {
+            let lidoc = document.createElement("li");
+            lidoc.textContent = index;
+            if (index == 1) {
+                lidoc.className = "active";
+                this.page_id = index;
+            }
+            lidoc.id = index;
+            udoc.appendChild(lidoc);
+        }
+        const self = this;
+        udoc.addEventListener("click", function (e) {
+            let pdoc = document.getElementById(self.page_id);
+            console.log("click button", e.target.id, pdoc);
+            if (e.target.id != self.page_id) {
+                pdoc.className = '';
+                let pdoc2 = document.getElementById(e.target.id);
+                pdoc2.className = "active";
+                self.page_id = e.target.id;
+                self.BlogListLocal(self.page_id - 1);
+            }
+
+
+        });
+        pdoc.appendChild(udoc);
+    }
+    BlogListLocal(page) {
+        if (page * this.pagesize >= this.count) {
+            return;
+        }
+        let last = this.count;
+        if ((page + 1) * this.pagesize < last) {
+            last = (page + 1) * this.pagesize;
+        }
+        let htmlElements = document.getElementById(this.id);
+        htmlElements.innerHTML = '';
+        for (var i = page * this.pagesize; i < last; i++) {
+            let node = GetBlogNode(this.rawdata[i].title, this.rawdata[i].author_id, this.rawdata[i].address, this.rawdata[i].tags, this.rawdata[i].view, this.rawdata[i].ctime, this.rawdata[i].desc);
+            htmlElements.appendChild(node);
+        }
+        return;
+    }
+    BlogList(author_id, tag = "", page = 0, title = "") {
+        console.log("do blog list");
+        if (this.rawdata != null && this.rawdata.length > 0) {
+
+        }
+        fetch(this.url + "/v1/blog/list", {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+                "Host": "127.0.0.1:5500"
+            },
+            body: JSON.stringify({
+                "tag": tag, "page": page,
+                "page_size": this.pagesize,
+                "title": title,
+                "author_id": author_id,
+            })
+        }).then((response) => {
+            if (response.status == 200) {
+                response.json().then((data) => {
+                    if (data.status == 1 && data.data != null) {
+                        this.rawdata = data.data;
+                        this.count = data.data.length;
+                        this.InitPagination();
+                        let maxsize = this.pagesize;
+                        if (maxsize > data.data.length) {
+                            maxsize = data.data.length;
+                        }
+                        console.log("set count to ", this.count, data.data.length);
+                        console.log("data count", data.data.length);
+                        let htmlElements = document.getElementById(this.id);
+                        for (var i = 0; i < maxsize; i++) {
+                            let node = GetBlogNode(data.data[i].title, data.data[i].author_id, data.data[i].address, data.data[i].tags, data.data[i].view, data.data[i].ctime, data.data[i].desc);
+                            htmlElements.appendChild(node);
+                        }
+                        //update page
+                    }
+                });
+            } else {
+                console.log("request failed ", response.status, response.body);
+            }
+        });
+        // htmlElements.appendChild(node);
+    }
+
+    //get author basic information
+    Profile() {
+        fetch(this.url + "/v1/user/" + this.account).then((response) => {
+            if (response.status == 200) {
+                response.json().then((data) => {
+                    if (data.status == 1 && data.data != null) {
+                        this.uid = data.data.id;
+                        this.location = data.data.location;
+                        let desc = document.getElementById("person-desc");
+                        desc.textContent = data.data.desc;
+                        let localations = document.getElementById("person-location");
+                        localations.textContent = data.data.location;
+                        let account = document.getElementById("account");
+                        account.textContent = this.account;
+                    }
+                });
+            } else {
+                console.log("request failed ", response.status, response.body);
+            }
+        });
+    }
+}
+
+//tagrank
+class TagPagination {
+    constructor(account, url, author_id, blogid = "article-holder", id = "like-box") {
+        this.account = account;
+        this.url = url;
+        this.author_id = author_id;
+        this.doc = document.getElementById(id);
+        this.pagesize = 10;
+        this.blogdoc = document.getElementById(blogid);
+    }
+    async InitPagination() {
+        let totalpage = this.count / this.pagesize;
+        if (this.count % this.pagesize > 0) {
+            totalpage++;
+        }
+        let pdoc = document.getElementById("pagination");
+        pdoc.innerHTML = '';
+        let udoc = document.createElement("ul");
+        for (let index = 1; index <= totalpage; index++) {
+            let lidoc = document.createElement("li");
+            lidoc.textContent = index;
+            if (index == 1) {
+                lidoc.className = "active";
+                this.page_id = index;
+            }
+            lidoc.id = index;
+            udoc.appendChild(lidoc);
+        }
+        const self = this;
+        udoc.addEventListener("click", function (e) {
+            let pdoc = document.getElementById(self.page_id);
+            console.log("click button", e.target.id, pdoc);
+            if (e.target.id != self.page_id) {
+                pdoc.className = '';
+                let pdoc2 = document.getElementById(e.target.id);
+                pdoc2.className = "active";
+                self.page_id = e.target.id;
+                self.DeployBlogLocal(self.page_id - 1);
+            }
+
+
+        });
+        pdoc.appendChild(udoc);
+    }
+    getTagNode(name, count) {
+        let node = document.createElement("li");
+        node.className = "column-category";
+        let anode = document.createElement("a");
+        anode.innerHTML = `${name}&nbsp;&nbsp;${count}&nbsp;`;
+        anode.id = name;
+        // let spanode = document.createElement("span");
+        node.appendChild(anode);
+        return node;
+    }
+    GetTagList() {
+        fetch(this.url + "/v1/blog/tag/list?author_account=" + this.account).then((response) => {
+            if (response.status != 200) {
+                console.log("bad response", response.body);
+                return;
+            }
+            response.json().then((data) => {
+                if (data.status != 1) {
+                    console.log("bad response ", data.status);
+                    return;
+                }
+                if (data.data == null || data.data.length == 0) {
+                    return;
+                }
+                this.doc.innerHTML = `<li class="column-title">
+                <span class="at-sort b-b-ece fl"><a class="at-sort-comment-a c-666 fl">Tag</a></span>
+            </li>`;
+                const self = this;
+                this.doc.addEventListener("click", function (e) {
+                    console.log("click", e.target);
+                    self.GetBlogWithTag(e.target.id);
+                });
+                for (let index = 0; index < data.data.length; index++) {
+                    this.doc.appendChild(this.getTagNode(data.data[index].key, data.data[index].value));
+                }
+            });
+        });
+    }
+    DeployBlogLocal(page) {
+        let last = this.rawdata.length;
+        if (last - page * this.pagesize > this.pagesize) {
+            last = (page + 1) * this.pagesize;
+        }
+        this.blogdoc.innerHTML = '';
+        for (let i = page * this.pagesize; i < last; i++) {
+            let bnode = GetBlogNode(this.rawdata[i].title, this.rawdata[i].author_id, this.rawdata[i].address, this.rawdata[i].tags, this.rawdata[i].view, this.rawdata[i].ctime, this.rawdata[i].desc);
+            this.blogdoc.appendChild(bnode);
+        }
+    }
+    GetBlogWithTag(tagname) {
+        fetch(this.url + "/v1/blog/list", {
+            method: "POST", body: JSON.stringify({
+                "author_id": this.author_id,
+                "tag": tagname
+            })
+        }).then((response) => {
+            if (response.status != 200) {
+                console.log("bad response", response.body);
+                return;
+            }
+            response.json().then((data) => {
+                if (data.status != 1) {
+                    console.log("bad response ", data.status);
+                    return;
+                }
+                if (data.data == null || data.data.length == 0) {
+                    return;
+                }
+                this.count = data.data.length;
+                this.InitPagination();
+                this.rawdata = data.data;
+                this.DeployBlogLocal(0);
+            });
+        });
+    }
+}
+
+class User {
+    Login() {
+    }
+    IsLogin() {
+
+        return false;
+    }
+}

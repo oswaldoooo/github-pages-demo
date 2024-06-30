@@ -57,10 +57,10 @@ func (b *BlogV1) BlogList(ctx *gin.Context) {
 		})
 		return
 	}
-	if len(req.Tag) > 0 {
-
-		return
-	}
+	// if len(req.Tag) > 0 {
+	// 	b.cb.BlogListWithTag(ctx, req.AuthorId, req.Tag)
+	// 	return
+	// }
 	var data []db.Blog
 	if len(req.Tag) > 0 {
 		data = b.cb.BlogListWithTag(ctx, req.AuthorId, req.Tag)
@@ -82,7 +82,8 @@ func (b *BlogV1) BlogRank(ctx *gin.Context) {
 }
 func (b *BlogV1) BlogTagList(ctx *gin.Context) {
 	authorId, _ := strconv.ParseUint(ctx.Query("author_id"), 10, 64)
-	taglist := b.cache.TagList(ctx, authorId)
+	account := ctx.Query("author_account")
+	taglist := b.cb.TagList(ctx, authorId, account)
 	ctx.JSON(http.StatusOK, BaseResponse{Status: Ok, Data: taglist})
 	ctx.Next()
 }
